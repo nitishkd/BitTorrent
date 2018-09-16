@@ -12,6 +12,8 @@
 #include <netdb.h>
 #include <bits/stdc++.h>
 #include <unistd.h>
+#include <thread>
+
 using namespace std;
 
 #define PORT 20000
@@ -24,8 +26,9 @@ void error(const char *msg)
     exit(1);
 }
 
-int main(int argc, char *argv[])
+void receiveFile(string name,int portno)
 {
+
     int sockfd; 
     int nsockfd;
     char buffer[LENGTH]; 
@@ -38,7 +41,7 @@ int main(int argc, char *argv[])
     }
 
     remote_addr.sin_family = AF_INET; 
-    remote_addr.sin_port = htons(PORT); 
+    remote_addr.sin_port = htons(portno); 
     //remote_addr.sin_addr.s_addr = INADDR_ANY;
     inet_pton(AF_INET, "127.0.0.1", &remote_addr.sin_addr); 
     bzero(&(remote_addr.sin_zero), 8);
@@ -49,10 +52,10 @@ int main(int argc, char *argv[])
         exit(1);
     }
     else 
-        printf("[Client] Connected to server at port %d...ok!\n", PORT);
+        printf("[Client] Connected to server at port %d...ok!\n", portno);
 
     printf("[Client] Receiveing file from Server and saving it as final.txt...");
-    char* fr_name = "final.pdf";
+    const char* fr_name = name.c_str();
     FILE *fr = fopen(fr_name, "a");
     if(fr == NULL)
         printf("File %s Cannot be opened.\n", fr_name);
@@ -89,5 +92,23 @@ int main(int argc, char *argv[])
     }
     close (sockfd);
     printf("[Client] Connection lost.\n");
+    
+}
+
+vector<thread> TH;
+int ThreadC;
+int main(int argc, char *argv[])
+{
+    
+    ThreadC = 2;
+
+    for(int i =0; i < ThreadC; ++i)
+    {
+        string name= "Fileno_"+to_string(i)+ ".pdf";
+        TH.push_back(thread(receiveFile, name,20000+i));
+    }
+    for(auto &th: TH)
+        th.join();
+    
     return (0);
 }
