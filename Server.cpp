@@ -14,8 +14,8 @@
 #include <bits/stdc++.h>
 #include <unistd.h>
 using namespace std;
-#define PORT 20000 
-#define BACKLOG 5
+#define PORT 20000
+#define BACKLOG 100
 #define LENGTH 1024
 
 
@@ -23,6 +23,36 @@ void error(const char *msg)
 {
     perror(msg);
     exit(1);
+}
+
+vector<thread> TH;
+int ThreadC;
+
+void fileServe(int nsockfd)
+{
+    char* fs_name = "/home/nitish/Desktop/image.png";
+    char sdbuf[LENGTH];
+    printf("[Server] Sending %s to the Client...", fs_name);
+    FILE *fs = fopen(fs_name, "r");
+    if(fs == NULL)
+    {
+        fprintf(stderr, "ERROR: File %s not found on server. (errno = %d)\n", fs_name, errno);
+        exit(1);
+    }
+    bzero(sdbuf, LENGTH); 
+    int fs_block_sz; 
+    while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
+    {
+        if(send(nsockfd, sdbuf, fs_block_sz, 0) < 0)
+        {
+            fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", fs_name, errno);
+            exit(1);
+        }
+        bzero(sdbuf, LENGTH);
+    }
+    printf("Ok sent to client!\n");
+    close(nsockfd);
+    printf("[Server] Connection with Client closed. Server will wait now...\n");
 }
 
 int main ()
@@ -65,45 +95,16 @@ int main ()
         printf ("[Server] Listening the port %d successfully.\n", PORT);
 
     int success = 0;
-    while(success == 0)
+    sin_size = sizeof(struct sockaddr_in);
+    while((nsockfd = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) != -1)
     {
+        printf("[Server] Server has got connected from %s.\n", inet_ntoa(addr_remote.sin_addr));    
+        TH.push_back(thread(fileServe, nsockfd));
         sin_size = sizeof(struct sockaddr_in);
-
-        if ((nsockfd = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) == -1) 
-        {
-            fprintf(stderr, "ERROR: Obtaining new Socket Despcritor. (errno = %d)\n", errno);
-            exit(1);
-        }
-        else 
-            printf("[Server] Server has got connected from %s.\n", inet_ntoa(addr_remote.sin_addr));
-
-
-            char* fs_name = "/home/nitish/Desktop/Torrent/OS.pdf";
-            char sdbuf[LENGTH];
-            printf("[Server] Sending %s to the Client...", fs_name);
-            FILE *fs = fopen(fs_name, "r");
-            if(fs == NULL)
-            {
-                fprintf(stderr, "ERROR: File %s not found on server. (errno = %d)\n", fs_name, errno);
-                exit(1);
-            }
-            
-            bzero(sdbuf, LENGTH); 
-            int fs_block_sz; 
-            while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
-            {
-                if(send(nsockfd, sdbuf, fs_block_sz, 0) < 0)
-                {
-                    fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", fs_name, errno);
-                    exit(1);
-                }
-                bzero(sdbuf, LENGTH);
-            }
-            printf("Ok sent to client!\n");
-            success = 1;
-            close(nsockfd);
-            printf("[Server] Connection with Client closed. Server will wait now...\n");
-            while(waitpid(-1, NULL, WNOHANG) > 0);
-        //}
     }
+
+    for(auto &th : TH)
+        if(th.joinable()) th.join();
+
+    return 0;
 }

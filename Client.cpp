@@ -18,7 +18,9 @@ using namespace std;
 #define PORT 20000
 #define LENGTH 1024
 
-void filedownload(int portnum)
+vector<thread> TH;
+int ThreadC;
+void filedownload(int portnum,int cnt)
 {
 
     int sockfd; 
@@ -47,8 +49,8 @@ void filedownload(int portnum)
         printf("[Client] Connected to server at port %d...ok!\n", portnum);
 
     printf("[Client] Receiveing file from Server and saving it as final.txt...");
-    string fr_name = "final" + to_string(portnum)+ ".pdf";
-    FILE *fr = fopen(fr_name.c_str(), "a");
+    string fr_name = "recieve" + to_string(cnt)+ ".png";
+    FILE *fr = fopen(fr_name.c_str(), "w");
     if(fr == NULL)
         printf("File %s Cannot be opened.\n", fr_name);
     else
@@ -93,16 +95,14 @@ void error(const char *msg)
     exit(1);
 }
 
-vector<thread> TH;
-int ThreadC;
-
 int main(int argc, char *argv[])
 {
 
-    ThreadC = 2;
+    ThreadC = 10;
     for(int i =0; i< ThreadC; ++i)
     {
-        TH.push_back(thread(filedownload, 20000+i));
+        TH.push_back(thread(filedownload, 20000,i));
+        
     }
     for(auto &th : TH)
         if(th.joinable()) th.join();
