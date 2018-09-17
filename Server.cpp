@@ -77,6 +77,7 @@ int main ()
         else 
             printf("[Server] Server has got connected from %s.\n", inet_ntoa(addr_remote.sin_addr));
 
+
             char* fs_name = "/home/nitish/Desktop/Torrent/OS.pdf";
             char sdbuf[LENGTH];
             printf("[Server] Sending %s to the Client...", fs_name);
@@ -103,6 +104,6 @@ int main ()
             close(nsockfd);
             printf("[Server] Connection with Client closed. Server will wait now...\n");
             while(waitpid(-1, NULL, WNOHANG) > 0);
-            
+        //}
     }
 }
