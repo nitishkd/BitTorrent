@@ -12,20 +12,15 @@
 #include <netdb.h>
 #include <bits/stdc++.h>
 #include <unistd.h>
+#include <thread>
 using namespace std;
 
 #define PORT 20000
 #define LENGTH 1024
 
-
-void error(const char *msg)
+void filedownload(int portnum)
 {
-    perror(msg);
-    exit(1);
-}
 
-int main(int argc, char *argv[])
-{
     int sockfd; 
     int nsockfd;
     char buffer[LENGTH]; 
@@ -38,7 +33,7 @@ int main(int argc, char *argv[])
     }
 
     remote_addr.sin_family = AF_INET; 
-    remote_addr.sin_port = htons(PORT); 
+    remote_addr.sin_port = htons(portnum); 
     //remote_addr.sin_addr.s_addr = INADDR_ANY;
     inet_pton(AF_INET, "127.0.0.1", &remote_addr.sin_addr); 
     bzero(&(remote_addr.sin_zero), 8);
@@ -49,11 +44,11 @@ int main(int argc, char *argv[])
         exit(1);
     }
     else 
-        printf("[Client] Connected to server at port %d...ok!\n", PORT);
+        printf("[Client] Connected to server at port %d...ok!\n", portnum);
 
     printf("[Client] Receiveing file from Server and saving it as final.txt...");
-    char* fr_name = "final.pdf";
-    FILE *fr = fopen(fr_name, "a");
+    string fr_name = "final" + to_string(portnum)+ ".pdf";
+    FILE *fr = fopen(fr_name.c_str(), "a");
     if(fr == NULL)
         printf("File %s Cannot be opened.\n", fr_name);
     else
@@ -65,7 +60,7 @@ int main(int argc, char *argv[])
             int write_sz = fwrite(buffer, sizeof(char), fr_block_sz, fr);
             if(write_sz < fr_block_sz)
             {
-                error("File write failed.\n");
+                printf("File write failed.\n");
             }
             bzero(buffer, LENGTH);
             if (fr_block_sz == 0 || fr_block_sz != LENGTH) 
@@ -89,5 +84,28 @@ int main(int argc, char *argv[])
     }
     close (sockfd);
     printf("[Client] Connection lost.\n");
+
+}
+
+void error(const char *msg)
+{
+    perror(msg);
+    exit(1);
+}
+
+vector<thread> TH;
+int ThreadC;
+
+int main(int argc, char *argv[])
+{
+
+    ThreadC = 2;
+    for(int i =0; i< ThreadC; ++i)
+    {
+        TH.push_back(thread(filedownload, 20000+i));
+    }
+    for(auto &th : TH)
+        if(th.joinable()) th.join();
+        
     return (0);
 }
