@@ -50,6 +50,7 @@ void fileServe(int nsockfd)
         }
         bzero(sdbuf, LENGTH);
     }
+    fclose(fs);
     printf("Ok sent to client!\n");
     close(nsockfd);
     printf("[Server] Connection with Client closed. Server will wait now...\n");
