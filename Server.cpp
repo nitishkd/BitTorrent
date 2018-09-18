@@ -62,9 +62,9 @@ int main ()
     int nsockfd; 
     int num;
     socklen_t sin_size; 
-    struct sockaddr_in addr_local; /* client addr */
-    struct sockaddr_in addr_remote; /* server addr */
-    char buffer[LENGTH]; // Receiver buffer
+    struct sockaddr_in addr_local; 
+    struct sockaddr_in addr_remote; 
+    char buffer[LENGTH];
 
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 )
     {
