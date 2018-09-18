@@ -14,7 +14,7 @@
 #include <bits/stdc++.h>
 #include <unistd.h>
 using namespace std;
-#define PORT 20000
+#define PORT 2000
 #define BACKLOG 100
 #define LENGTH 1024
 
@@ -32,8 +32,9 @@ void fileServe(int nsockfd)
 {
     char* fs_name = "/home/nitish/Desktop/image.png";
     char sdbuf[LENGTH];
-    printf("[Server] Sending %s to the Client...", fs_name);
-    FILE *fs = fopen(fs_name, "r");
+    int pid = pthread_self();
+    printf("%d: [Server] Sending %s to the Client...\n", pid, fs_name);
+    FILE *fs = fopen(fs_name, "rb");
     if(fs == NULL)
     {
         fprintf(stderr, "ERROR: File %s not found on server. (errno = %d)\n", fs_name, errno);
@@ -45,7 +46,7 @@ void fileServe(int nsockfd)
     {
         if(send(nsockfd, sdbuf, fs_block_sz, 0) < 0)
         {
-            fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", fs_name, errno);
+            fprintf(stderr, "%d ERROR: Failed to send file %s. (errno = %d)\n", pid, fs_name, errno);
             exit(1);
         }
         bzero(sdbuf, LENGTH);
@@ -54,6 +55,7 @@ void fileServe(int nsockfd)
     printf("Ok sent to client!\n");
     close(nsockfd);
     printf("[Server] Connection with Client closed. Server will wait now...\n");
+    // pthread_exit(EXIT_SUCCESS);
 }
 
 int main ()
