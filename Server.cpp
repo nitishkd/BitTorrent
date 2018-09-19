@@ -16,7 +16,7 @@
 using namespace std;
 #define PORT 2000
 #define BACKLOG 100
-#define LENGTH 1024
+#define LENGTH 524288
 
 
 void error(const char *msg)
