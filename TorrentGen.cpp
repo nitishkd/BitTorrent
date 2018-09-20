@@ -5,8 +5,8 @@ using namespace std;
 #define LENGTH 524288
 int main()
 {
-    string TR1 = "167.233.221.22:4556";
-    string TR2 = "167.233.221.23:4557";
+    string TR1 = "127.0.0.1:3000";
+    string TR2 = "127.0.0.1:3500";
     char* fs_name = "/home/nitish/Desktop/bla.cpp";
     std::ifstream in(fs_name, std::ifstream::ate | std::ifstream::binary);
     int filesize = in.tellg(); 
@@ -40,7 +40,8 @@ int main()
         bzero(hash, SHA_DIGEST_LENGTH);
         bzero(sdbuf, LENGTH);
     }
-    fclose(stdout);
+    fprintf(output,"\n"); 
+    fclose(output);
     fclose(fs);
 
     return 0;

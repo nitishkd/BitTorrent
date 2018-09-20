@@ -18,7 +18,6 @@ using namespace std;
 #define BACKLOG 100
 #define LENGTH 524288
 
-
 void error(const char *msg)
 {
     perror(msg);
@@ -48,14 +47,13 @@ vector<string> split(std::string txt, char ch)
     return strs;
 }
 
-void ShareTorrentFile(int nsockfd, string ipaddr)
+void ShareTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 {
     int fr_block_sz;
-    string TorrentData;
+    //string TorrentData;
     char buffer[LENGTH];
-    while((fr_block_sz = read(nsockfd, buffer, LENGTH)) > 0)
-        TorrentData  += buffer;
-
+    cout<<"inside Share torrent method"<<endl;
+    cout<<TorrentData<<endl;
     vector<string> V = split(TorrentData, '\n');
     TorrentList[V[4]].insert(ipaddr);
 }
@@ -117,7 +115,7 @@ void Synchronize()
     else 
         printf("[Client] Connected to Other Tracker...ok!\n");
 
-    char* msg = "synchronize";
+    char* msg = "synchronize$1";
 
     send(sockfd, msg, strlen(msg), 0); 
 
@@ -146,21 +144,51 @@ void Synchronize()
     close (sockfd);
 }
 
-void RequestHandler(int nsockfd, char* request, string ipaddr)
+void SendSeederListofTorrent(int nsockfd, string ipaddr, string hash)
 {
-    if(strcmp(request, "share") == 0)
+    int fr_block_sz;
+    cout<<"Sending Seeders list"<<endl;
+    string sendstr = "";
+    cout<<hash<<endl;
+    for(auto i = TorrentList[hash].begin(); i != TorrentList[hash].end(); ++i)
     {
-        ShareTorrentFile(nsockfd, ipaddr);
+        sendstr += (*i);
+        sendstr += "\n";
     }
-    if(strcmp(request, "seederlist") == 0)
+    cout<<sendstr<<endl;
+    for(int i =0; i <= sendstr.length(); i += LENGTH)
+    {
+        string buff = sendstr.substr(i, min((unsigned long)LENGTH, sendstr.length() - i));
+        send(nsockfd, buff.c_str(), buff.length(),0);
+    }
+    close(nsockfd);
+}
+
+void RequestHandler(int nsockfd, string ipaddr)
+{
+    char req[LENGTH];
+    cout<<"Entered Handler"<<endl;
+    bzero(req, LENGTH);
+    int ReqLen = read(nsockfd, req, LENGTH);
+    string msg = req;
+    vector<string> message = split(msg,'$');
+    string request = message[0];
+
+    if(request == "share")
+    {
+        string hash = message[1];
+        ShareTorrentFile(nsockfd, ipaddr, hash);
+    }
+    if(request == "seederlist")
+    {
+        string hash = message[1];
+        SendSeederListofTorrent(nsockfd, ipaddr, hash);
+    }
+    if(request == "remove")
     {
         //TODO
     }
-    if(strcmp(request, "remove") == 0)
-    {
-        //TODO
-    }
-    if(strcmp(request, "synchronize") == 0)
+    if(request == "synchronize")
     {
         SynchronizeTrackers(nsockfd, ipaddr);
     }
@@ -231,17 +259,13 @@ int main (int argc, char const *argv[])
     int success = 0;
     sin_size = sizeof(struct sockaddr_in);
     while((nsockfd = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) != -1)
-    {
-        bzero(request, LENGTH); 
+    { 
         string ipaddr = inet_ntoa(addr_remote.sin_addr);
         printf("[TRACKER] Server has got connected from %s\n", ipaddr.c_str()); 
         //get the request header first
         ipaddr += ":";
         ipaddr += to_string(ntohs(addr_remote.sin_port));
-
-        int ReqLen = read(nsockfd, request, LENGTH-1);
-        TH.push_back(thread(RequestHandler, nsockfd, request, ipaddr));        
-
+        TH.push_back(thread(RequestHandler, nsockfd, ipaddr));
         sin_size = sizeof(struct sockaddr_in);
     }
 
