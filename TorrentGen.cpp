@@ -7,7 +7,7 @@ int main()
 {
     string TR1 = "127.0.0.1:3000";
     string TR2 = "127.0.0.1:3500";
-    char* fs_name = "/home/nitish/Desktop/bla.cpp";
+    char* fs_name = "/home/nitish/Desktop/input.txt";
     std::ifstream in(fs_name, std::ifstream::ate | std::ifstream::binary);
     int filesize = in.tellg(); 
     in.close();
@@ -27,6 +27,7 @@ int main()
     fprintf(output,"%s\n", TR2.c_str());
     fprintf(output,"%s\n", Fname.c_str());
     fprintf(output,"%d\n", filesize);
+    int i = 0;
     while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
     {
         string str = "";
@@ -36,6 +37,8 @@ int main()
             sprintf(newstr,"%02x", hash[i]);
             str.append(newstr);
         }
+        cout<<i<<" "<<fs_block_sz<<endl;
+        ++i;
         fprintf(output,"%s",str.c_str());
         bzero(hash, SHA_DIGEST_LENGTH);
         bzero(sdbuf, LENGTH);

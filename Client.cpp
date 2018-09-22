@@ -38,6 +38,118 @@ vector<string> split(std::string txt, char ch)
     return strs;
 }
 
+std::vector<std::string> splitBig(std::string stringToBeSplitted, std::string delimeter)
+{
+     std::vector<std::string> splittedString;
+     int startIndex = 0;
+     int  endIndex = 0;
+     while( (endIndex = stringToBeSplitted.find(delimeter, startIndex)) < stringToBeSplitted.size() )
+    {
+       std::string val = stringToBeSplitted.substr(startIndex, endIndex - startIndex);
+       splittedString.push_back(val);
+       startIndex = endIndex + delimeter.size();
+     }
+     if(startIndex < stringToBeSplitted.size())
+     {
+       std::string val = stringToBeSplitted.substr(startIndex);
+       splittedString.push_back(val);
+     }
+     return splittedString;
+}
+
+void receivePackets(vector<int > packets,int port)
+{
+    int sockfd; 
+    int nsockfd;
+    char buffer[LENGTH+8]; 
+    struct sockaddr_in remote_addr;
+    sort(packets.begin(), packets.end());
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    {
+        fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
+        exit(1);
+    }
+    
+    int portnum = port;
+    string TrackerIp = "127.0.0.1";
+    remote_addr.sin_family = AF_INET; 
+    remote_addr.sin_port = htons(portnum); 
+    //remote_addr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, TrackerIp.c_str(), &remote_addr.sin_addr); 
+    bzero(&(remote_addr.sin_zero), 8);
+    if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
+    {
+        fprintf(stderr, "ERROR: Failed to connect to the Server! (errno = %d)\n",errno);
+        exit(1);
+    }
+    else 
+        printf("[Client] Connected to Server at port %d...ok!\n", portnum);
+    
+    sockfd;
+    string sendstr = "";
+    for(int i =0; i < packets.size(); ++i)
+    {
+        sendstr += to_string(packets[i]);
+        if(i != (packets.size()-1))
+            sendstr += " ";
+    }
+    
+    strcpy(buffer, sendstr.c_str());
+    send(sockfd, buffer, strlen(buffer), 0);
+    
+    string fr_name = "recieve.txt";
+    FILE *fr = fopen(fr_name.c_str(), "w");
+    if(fr == NULL)
+        printf("File %s Cannot be opened.\n", fr_name);
+    else
+    {
+        //shutdown(nsockfd, SHUT_WR);
+        bzero(buffer, LENGTH+8); 
+        int fr_block_sz = 0;
+        string strs = "";
+        while((fr_block_sz = recv(sockfd, buffer, LENGTH,0)) > 0)
+        {
+            strs += buffer;
+            bzero(buffer, LENGTH+8); 
+        }
+        vector<string> pieces = splitBig(strs, "##########");
+        cout<<"No of pieces : "<<pieces.size()<<endl;
+        for(int i =0; i < packets.size(); ++i)
+        {
+            cout<<packets[i]<<" "<<pieces[i].length()<<endl;
+            fseek(fr, packets[i]*LENGTH, SEEK_SET);
+            // if(pieces[i].length() > LENGTH)
+            //     pieces[i].substr(0, LENGTH);
+            int write_sz = fwrite(pieces[i].c_str(), sizeof(char), strlen(pieces[i].c_str()), fr);
+        }
+        printf("Ok received from server!\n");
+        fclose(fr);
+    }
+    close(sockfd);
+}
+
+void downloadManager()
+{
+    vector<int> v,u;
+    v.push_back(2);
+    v.push_back(1);
+v.push_back(0);
+v.push_back(3);
+v.push_back(5);
+v.push_back(4);
+v.push_back(6);
+v.push_back(9);
+v.push_back(7);
+v.push_back(8);
+v.push_back(12);
+v.push_back(11);
+v.push_back(13);
+v.push_back(10);
+
+    receivePackets(v,2000);
+    //receivePackets(u,3000);  
+}
+
 void filedownload(int portnum,int cnt)
 {
 
@@ -113,7 +225,7 @@ void ShareTorrentWithTracker(string FileName)
     else 
         printf("[Client] Connected to Tracker at port %d...ok!\n", portnum);
     string msg = "share$1";
-
+    
     //send(sockfd, msg, strlen(msg), 0);    
 
     char sdbuf[LENGTH];
@@ -227,6 +339,6 @@ int main(int argc, char *argv[])
 {
     //ShareTorrentWithTracker("torrentFile.mtorrent");
     //GetSeederListFromTracker();
-        
+    downloadManager();
     return (0);
 }
