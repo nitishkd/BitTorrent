@@ -326,6 +326,70 @@ void ShareTorrentWithTracker(string filepath, string FileName)
  
 }
 
+void RemoveTorrentFromTracker(string FileName)
+{
+
+    int sockfd; 
+    int nsockfd;
+    char buffer[LENGTH]; 
+    struct sockaddr_in remote_addr;
+
+    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+    {
+        fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
+        exit(1);
+    }
+    vector<string> V = split(TR1, ':');
+    int portnum = stoi(V[1]);
+    string TrackerIp = V[0];
+    remote_addr.sin_family = AF_INET; 
+    remote_addr.sin_port = htons(portnum); 
+    //remote_addr.sin_addr.s_addr = INADDR_ANY;
+    inet_pton(AF_INET, TrackerIp.c_str(), &remote_addr.sin_addr); 
+    bzero(&(remote_addr.sin_zero), 8);
+    if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
+    {
+        fprintf(stderr, "ERROR: Failed to connect to the Tracker! (errno = %d)\n",errno);
+        exit(1);
+    }
+    else 
+        fprintf(stderr,"[Client] Connected to Tracker at port %d...ok!\n", portnum);
+    string msg = "remove$";
+    
+    //send(sockfd, msg, strlen(msg), 0);    
+
+    char sdbuf[LENGTH];
+    FILE *fs = fopen(FileName.c_str(), "rb");
+    if(fs == NULL)
+    {
+        fprintf(stderr, "ERROR: File not found on Client. (errno = %d)\n", errno);
+        exit(1);
+    }
+    bzero(sdbuf, LENGTH); 
+    int fs_block_sz;
+    msg += SERVER;
+    msg += "\n";
+    while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
+    {
+        msg += sdbuf;
+        bzero(sdbuf, LENGTH);
+    }
+    send(sockfd, msg.c_str(), strlen(msg.c_str()), 0);    
+    fclose(fs);
+    string hash = "";
+    ifstream infile (FileName.c_str());
+    
+    while(getline(infile, hash));
+    
+    HashFileMap.erase(hash);
+    
+    fprintf(stderr,"Ok sent to Tracker!\n");
+    close(sockfd);
+    fprintf(stderr,"[Client] Connection with Tracker closed.\n");
+ 
+
+}
+
 void makeTorrent(string path)
 {
     string fs_name = path;
@@ -368,8 +432,7 @@ void makeTorrent(string path)
         bzero(hash, SHA_DIGEST_LENGTH);
         bzero(sdbuf, LENGTH);
     }
-    //fprintf(output,"\n");
-    cerr<<"Torrent File Generated "<<endl; 
+    fprintf(stderr, "Torrent File Generated \n");
     fclose(output);
     fclose(fs);
 }
@@ -403,7 +466,6 @@ void sendPackets(int nsockfd)
     }
     bzero(sdbuf, LENGTH+8); 
     int fs_block_sz;
-    //sort(packet.begin(), packet.end());
     int k;
     string sendstr = "";
     for(int i =0; i < packet.size(); ++i)
@@ -458,7 +520,6 @@ void fileServe(int nsockfd)
     fprintf(stderr,"Ok sent to client!\n");
     close(nsockfd);
     fprintf(stderr,"[Server] Connection with Client closed. Server will wait now...\n");
-    // pthread_exit(EXIT_SUCCESS);
 }
 
 void serverInit()
@@ -532,7 +593,7 @@ int main(int argc, char *argv[])
     while(true)
     {
         getline(cin,args);
-        vector<string> argument = split(args, ' ');
+        vector<string> argument = split(args,' ');
         action = argument[0];    
         if(action == "gen")
         {
@@ -558,9 +619,16 @@ int main(int argc, char *argv[])
             else
                 TH.push_back(thread(downloadManager, argument[2], argument[1]));
         }
+        else if(action == "remove")
+        {
+            
+            if(argument.size() != 2)
+                fprintf(stderr, "Invalid argument: <filename>.mtorrent \n");
+            else
+                TH.push_back(thread(RemoveTorrentFromTracker, argument[1]));
+        }
 
     }
 
-    //downloadManager();
     return (0);
 }

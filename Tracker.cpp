@@ -56,6 +56,15 @@ void ShareTorrentFile(int nsockfd, string ipaddr, string TorrentData)
     TorrentList[V[6]].insert(ipaddr);
 }
 
+void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData)
+{
+    int fr_block_sz;
+    char buffer[LENGTH];
+    vector<string> V = split(TorrentData, '\n');
+    ipaddr = V[0];
+    TorrentList[V[6]].erase(ipaddr);
+}
+
 void SynchronizeTrackers(int nsockfd, string ipaddr)
 {
     string otherTracker = otherIpPort[0] + ":" + otherIpPort[1];
@@ -118,7 +127,6 @@ void Synchronize()
     int valread = read( sockfd , buffer, LENGTH); 
     string num = buffer;
     int count = stoi(num);
-    cout<<"Number of Torrents : "<<count<<endl;    
     bzero(buffer, LENGTH); 
     int fr_block_sz = 0;
     string strs = "";
@@ -187,6 +195,11 @@ void RequestHandler(int nsockfd, string ipaddr)
     if(request == "synchronize")
     {
         SynchronizeTrackers(nsockfd, ipaddr);
+    }
+    if(request == "remove")
+    {
+        string hash = message[1];
+        RemoveTorrentFile(nsockfd, ipaddr, hash);
     }
 
 }
