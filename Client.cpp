@@ -12,6 +12,7 @@
 #include <netdb.h>
 #include <bits/stdc++.h>
 #include <unistd.h>
+#include <openssl/sha.h>
 #include <thread>
 using namespace std;
 
@@ -20,6 +21,8 @@ using namespace std;
 
 vector<thread> TH;
 int ThreadC;
+
+string TR1, TR2;
 
 vector<string> split(std::string txt, char ch)
 {
@@ -329,6 +332,54 @@ void GetSeederListFromTracker()
      
 }
 
+void makeTorrent(string path)
+{
+    string fs_name = path;
+    std::ifstream in(fs_name.c_str(), std::ifstream::ate | std::ifstream::binary);
+    int filesize = in.tellg(); 
+    in.close();
+    vector<string> V = split(fs_name, '/');
+
+    string Fname = V.back();
+    char sdbuf[LENGTH];
+    FILE *fs = fopen(fs_name.c_str(), "rb");
+    if(fs == NULL)
+    {
+        fprintf(stderr, "ERROR: File %s not found.(errno = %d)\n", Fname.c_str(), errno);
+        exit(1);
+    }
+    vector<string>T = split(Fname, '.');
+    string initname = T[0];
+    initname += ".mtorrent";
+    bzero(sdbuf, LENGTH); 
+    int fs_block_sz; 
+    FILE* output = fopen(initname.c_str(), "w");
+    unsigned char hash[LENGTH];
+    fprintf(output,"%s\n", TR1.c_str());
+    fprintf(output,"%s\n", TR2.c_str());
+    fprintf(output,"%s\n", fs_name.c_str());
+    fprintf(output,"%s\n", Fname.c_str());
+    fprintf(output,"%d\n", filesize);
+    int i = 0;
+    while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
+    {
+        string str = "";
+        char newstr[20];
+        SHA1((unsigned char *)sdbuf, strlen(sdbuf),hash);
+        for(int i =0; i < 20; ++i){
+            sprintf(newstr,"%02x", hash[i]);
+            str.append(newstr);
+        }
+        fprintf(output,"%s",str.c_str());
+        bzero(hash, SHA_DIGEST_LENGTH);
+        bzero(sdbuf, LENGTH);
+    }
+    //fprintf(output,"\n");
+    cerr<<"Torrent File Generated "<<endl; 
+    fclose(output);
+    fclose(fs);
+}
+
 void error(const char *msg)
 {
     perror(msg);
@@ -339,6 +390,34 @@ int main(int argc, char *argv[])
 {
     //ShareTorrentWithTracker("torrentFile.mtorrent");
     //GetSeederListFromTracker();
-    downloadManager();
+    if(argc != 5 )
+    {
+        cerr<<"Invalid Format : <CLIENT_IP>:<UPLOAD_PORT> <TRACKER_IP_1>:<TRACKER_PORT_1> <TRACKER_IP_2>:<TRACKER_PORT_2> <log_file>"<<endl;
+        return 0;
+    }
+    TR1 = argv[2];
+    TR2 = argv[3];
+    string action,args;
+    while(true)
+    {
+        getline(cin,args);
+        vector<string> argument = split(args, ' ');
+        action = argument[0];    
+        if(action == "gen")
+        {
+            if(argument.size() != 2)
+            {
+                cerr<<"Invalid argument : <filepathname>"<<endl;
+                return 0;
+            }
+            else
+            {
+                args = argument[1];
+                cout<<args<<endl;
+                makeTorrent(args);
+            }
+        }
+    }
+    //downloadManager();
     return (0);
 }

@@ -1,14 +1,14 @@
 S : Server.cpp
-	g++ -std=c++11 -pthread Server.cpp -o Server
+	g++ -w -std=c++11 -pthread Server.cpp -o Server
 
 C :	Client.cpp
-	g++ -std=c++11 -pthread Client.cpp -o Client
+	g++ -w -std=c++11 -pthread Client.cpp -o Client -L/usr/lib -lssl -lcrypto
 
 MT : TorrentGen.cpp
-	g++ -std=c++11 TorrentGen.cpp -o TorrentGen -L/usr/lib -lssl -lcrypto
+	g++ -w -std=c++11 TorrentGen.cpp -o TorrentGen -L/usr/lib -lssl -lcrypto
 
 TR: Tracker.cpp
-	g++ -std=c++11 Tracker.cpp -o Tracker -pthread
+	g++ -w -std=c++11 Tracker.cpp -o Tracker -pthread
 
 clean:
 	rm -f Client
