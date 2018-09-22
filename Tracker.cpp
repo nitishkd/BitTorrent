@@ -50,19 +50,15 @@ vector<string> split(std::string txt, char ch)
 void ShareTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 {
     int fr_block_sz;
-    //string TorrentData;
     char buffer[LENGTH];
-    cout<<"inside Share torrent method"<<endl;
-    cout<<TorrentData<<endl;
     vector<string> V = split(TorrentData, '\n');
-    TorrentList[V[4]].insert(ipaddr);
+    ipaddr = V[0];
+    TorrentList[V[6]].insert(ipaddr);
 }
 
 void SynchronizeTrackers(int nsockfd, string ipaddr)
 {
-    cout<<"Synchronizing Trackers"<<endl;
     string otherTracker = otherIpPort[0] + ":" + otherIpPort[1];
-    cout<<otherTracker<<"    "<<ipaddr<<" "<<TorrentList.size()<<endl;
     //if(otherTracker != ipaddr)
     {
         string number = to_string( TorrentList.size());
@@ -147,15 +143,15 @@ void Synchronize()
 void SendSeederListofTorrent(int nsockfd, string ipaddr, string hash)
 {
     int fr_block_sz;
-    cout<<"Sending Seeders list"<<endl;
+    fprintf(stderr, "Sending Seeder List\n");
     string sendstr = "";
-    cout<<hash<<endl;
     for(auto i = TorrentList[hash].begin(); i != TorrentList[hash].end(); ++i)
     {
+        if(i != TorrentList[hash].begin())
+            sendstr += "\n";
         sendstr += (*i);
-        sendstr += "\n";
+        
     }
-    cout<<sendstr<<endl;
     for(int i =0; i <= sendstr.length(); i += LENGTH)
     {
         string buff = sendstr.substr(i, min((unsigned long)LENGTH, sendstr.length() - i));
