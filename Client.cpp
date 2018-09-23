@@ -17,7 +17,7 @@
 
 using namespace std;
 
-#define debug(x) cout<<"debug point : "<<x<<endl
+#define debug(x) fprintf(stderr, "Reached Checkpoint: %d \n", x);
 #define BACKLOG 100
 #define PORT 2000
 #define LENGTH 524288
@@ -104,7 +104,7 @@ vector<string> GetSeederListFromTracker(string Filename)
         exit(1);
     }
     else 
-        printf("[Client] Connected to Tracker at port %d...ok!\n", portnum);
+        fprintf(stderr,"[Client] Connected to Tracker at port %d...ok!\n", portnum);
     
     string msg = "seederlist$";
     bzero(buffer, LENGTH); 
@@ -125,7 +125,7 @@ vector<string> GetSeederListFromTracker(string Filename)
     for(int i =0; i < V.size(); ++i)
         Torrent.push_back(V[i]);
     close(sockfd);
-    printf("[Client] Connection with Tracker closed.\n");
+    fprintf(stderr,"[Client] Connection with Tracker closed.\n");
     return Torrent;
     
      
@@ -250,10 +250,8 @@ vector<int> GetPieceList(string IPport,string hash)
 
     vector<string> VT = split(packets,' ');
     vector<int> res;
-    cout<<VT.size()<<endl;
     for(int i =0; i < VT.size(); ++i)
     {
-        cout<<i<<" "<<VT[i]<<endl;
         res.push_back(stoi(VT[i]));
     }    
     return res;
@@ -294,14 +292,19 @@ void downloadManager(string PathTorrent, string result)
     int no_of_pieces = (fileSize + LENGTH - 1)/LENGTH;
     debug(0);
     string hash = TorrentInfo[5];
-    HashFileMap[hash] = result;
+    string filepath;
+    filepath = result;
+    if(filepath.back() != '/')
+        filepath += "/";
+    filepath += TorrentInfo[3];
+    HashFileMap[hash] = filepath;
     vector<vector<int> > AllListofPieces;
     for(int i =0; i < SeederList.size(); ++i)
         AllListofPieces.push_back(GetPieceList(SeederList[i], hash));
     debug(1);
     vector<vector<int> > Pieces = Distribute(AllListofPieces, no_of_pieces, SeederList.size());
     debug(2);
-    thread regT(ShareTorrentWithTracker,result, PathTorrent);
+    thread regT(ShareTorrentWithTracker,filepath, PathTorrent);
     regT.detach();
     // for(int i =0; i < no_of_pieces; i += 10*SeederList.size())
     // {
@@ -323,7 +326,7 @@ void downloadManager(string PathTorrent, string result)
     debug(4);
     Download.insert({TorrentInfo[3], true});
     for(int i=0; i < Pieces.size(); ++i)   
-        LocalThread.push_back(thread(receivePackets, Pieces[i], SeederList[i], TorrentInfo[3], hash));
+        LocalThread.push_back(thread(receivePackets, Pieces[i], SeederList[i], filepath, hash));
     debug(5);
     for(auto &it : LocalThread)
         if(it.joinable()) it.join();
@@ -559,7 +562,6 @@ void makeTorrent(string path)
         bzero(sdbuf, LENGTH);
     }
     int no_of_pieces = (filesize + LENGTH - 1)/LENGTH;
-    cout<<hashnew<<" *** "<<no_of_pieces<<endl;
     for(int i = 0; i < no_of_pieces; ++i)
         FilePiecesAvailable[hashnew].insert(i);
     fprintf(stderr, "Torrent File Generated \n");
@@ -664,8 +666,7 @@ void ServerHandler(int nsockfd)
     recv(nsockfd, sdbuf, LENGTH,0);
     action += sdbuf;
     bzero(sdbuf, LENGTH + 8);
-    cout<<action<<endl;
-
+    
     vector<string> V = split(action, '$');
     if(V[0] == "PacketList")
     {
@@ -677,7 +678,6 @@ void ServerHandler(int nsockfd)
                 sendavailPacks += " ";
             sendavailPacks += to_string(*it);
         }
-        cout<<"Available Packets: "<<sendavailPacks<<endl;
         send(nsockfd, sendavailPacks.c_str(), strlen(sendavailPacks.c_str()), 0);
         close(nsockfd);
     }
@@ -705,7 +705,7 @@ void serverInit()
         exit(1);
     }
     else 
-        printf("[Server] Obtaining socket descriptor successfully.\n");
+        fprintf(stderr,"[Server] Obtaining socket descriptor successfully.\n");
 
     vector<string> ServCred = split(SERVER, ':');
     addr_local.sin_family = AF_INET;
@@ -747,13 +747,15 @@ int main(int argc, char *argv[])
 {
     if(argc != 5 )
     {
-        cerr<<"Invalid Format : <CLIENT_IP>:<UPLOAD_PORT> <TRACKER_IP_1>:<TRACKER_PORT_1> <TRACKER_IP_2>:<TRACKER_PORT_2> <log_file>"<<endl;
+        cout<<"Invalid Format : <CLIENT_IP>:<UPLOAD_PORT> <TRACKER_IP_1>:<TRACKER_PORT_1> <TRACKER_IP_2>:<TRACKER_PORT_2> <log_file>"<<endl;
         return 0;
     }
 
     SERVER = argv[1];
     TR1 = argv[2];
     TR2 = argv[3];
+    freopen(argv[4], "w" , stderr);
+    
     string action,args;
     thread server(serverInit);
     server.detach();
@@ -765,7 +767,7 @@ int main(int argc, char *argv[])
         if(action == "gen")
         {
             if(argument.size() != 2)
-                fprintf(stderr, "Invalid argument : <filepathname> \n");
+                printf( "Invalid argument : <filepathname> \n");
             else
             {
                 args = argument[1];
@@ -775,14 +777,14 @@ int main(int argc, char *argv[])
         else if(action == "share")
         {
             if(argument.size() != 3)
-                fprintf(stderr, "Invalid argument : <absolute_local_file_path> <filename.mtorrent>\n");
+                printf("Invalid argument : <absolute_local_file_path> <filename.mtorrent>\n");
             else
                 TH.push_back(thread( ShareTorrentWithTracker, argument[1],argument[2]));
         }
         else if(action == "get")
         {
             if(argument.size() != 3)
-                fprintf(stderr, "Invalid argument: <local file path> <filename>.mtorrent \n");
+                printf( "Invalid argument: <local file path> <filename>.mtorrent \n");
             else
                 TH.push_back(thread(downloadManager, argument[2], argument[1]));
         }
@@ -790,7 +792,7 @@ int main(int argc, char *argv[])
         {
             
             if(argument.size() != 2)
-                fprintf(stderr, "Invalid argument: <filename>.mtorrent \n");
+                printf( "Invalid argument: <filename>.mtorrent \n");
             else
                 TH.push_back(thread(RemoveTorrentFromTracker, argument[1]));
         }
@@ -800,6 +802,6 @@ int main(int argc, char *argv[])
         }
 
     }
-
+    fclose(stderr);
     return (0);
 }

@@ -83,7 +83,6 @@ void SynchronizeTrackers(int nsockfd, string ipaddr)
             }
             sendstr += "\n";
         }
-        cout<<sendstr<<endl;
         for(int i =0; i <= sendstr.length(); i += LENGTH)
         {
             string buff = sendstr.substr(i, min((unsigned long)LENGTH, sendstr.length() - i));
@@ -118,7 +117,7 @@ void Synchronize()
         return;
     }
     else 
-        printf("[Client] Connected to Other Tracker...ok!\n");
+        fprintf(stderr,"[Client] Connected to Other Tracker...ok!\n");
 
     char* msg = "synchronize$1";
 
@@ -144,7 +143,6 @@ void Synchronize()
         else
             TorrentList[hash].insert(V[i]);
     }
-    cout<<TorrentList.size()<<endl;
     close (sockfd);
 }
 
@@ -171,7 +169,6 @@ void SendSeederListofTorrent(int nsockfd, string ipaddr, string hash)
 void RequestHandler(int nsockfd, string ipaddr)
 {
     char req[LENGTH];
-    cout<<"Entered Handler"<<endl;
     bzero(req, LENGTH);
     int ReqLen = read(nsockfd, req, LENGTH);
     string msg = req;
@@ -228,7 +225,7 @@ int main (int argc, char const *argv[])
     string S2 = argv[2];
     string seederList = argv[3];
     string logfile = argv[4];
-
+    freopen(argv[4], "w" , stderr);
     myIpPort = split(S1, ':');
     otherIpPort = split(S2, ':');
     
@@ -242,7 +239,7 @@ int main (int argc, char const *argv[])
         exit(1);
     }
     else 
-        printf("[Tracker] Obtaining socket descriptor successfully.\n");
+        fprintf(stderr,"[Tracker] Obtaining socket descriptor successfully.\n");
 
     addr_local.sin_family = AF_INET;
     addr_local.sin_port = htons(stoi(myIpPort[1]));
@@ -255,7 +252,7 @@ int main (int argc, char const *argv[])
         exit(1);
     }
     else 
-        printf("[Tracker] Binded tcp port %d in addr 127.0.0.1 sucessfully.\n",PORT);
+        fprintf(stderr,"[Tracker] Binded tcp port %d in addr 127.0.0.1 sucessfully.\n",PORT);
 
     if(listen(sockfd,BACKLOG) == -1)
     {
@@ -263,14 +260,14 @@ int main (int argc, char const *argv[])
         exit(1);
     }
     else
-        printf ("[Tracker] Listening the port %d successfully.\n", PORT);
+        fprintf (stderr,"[Tracker] Listening the port %d successfully.\n", PORT);
 
     int success = 0;
     sin_size = sizeof(struct sockaddr_in);
     while((nsockfd = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) != -1)
     { 
         string ipaddr = inet_ntoa(addr_remote.sin_addr);
-        printf("[TRACKER] Server has got connected from %s\n", ipaddr.c_str()); 
+        fprintf(stderr,"[TRACKER] Server has got connected from %s\n", ipaddr.c_str()); 
         //get the request header first
         ipaddr += ":";
         ipaddr += to_string(ntohs(addr_remote.sin_port));
@@ -280,6 +277,8 @@ int main (int argc, char const *argv[])
 
     for(auto &th : TH)
         if(th.joinable()) th.join();
+
+    fclose(stderr);
 
     return 0;
 }
