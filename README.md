@@ -29,5 +29,5 @@ Bit Torrent File Sharing P2P System
 
 ### Command to Run Client: 
 
-` ./Client 127.0.0.1:2500 127.0.0.1:3000 127.0.0.1:3500 logC.txt
+`./Client 127.0.0.1:2500 127.0.0.1:3000 127.0.0.1:3500 logC.txt`
 
