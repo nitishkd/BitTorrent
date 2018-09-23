@@ -26,7 +26,7 @@ void error(const char *msg)
 
 vector<string >myIpPort;
 vector<string >otherIpPort;
-    
+string logfile;
 
 map< string,set<string> >TorrentList;
 
@@ -58,6 +58,8 @@ void ShareTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 
 void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     int fr_block_sz;
     char buffer[LENGTH];
     vector<string> V = split(TorrentData, '\n');
@@ -67,6 +69,8 @@ void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 
 void SynchronizeTrackers(int nsockfd, string ipaddr)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     string otherTracker = otherIpPort[0] + ":" + otherIpPort[1];
     //if(otherTracker != ipaddr)
     {
@@ -94,6 +98,8 @@ void SynchronizeTrackers(int nsockfd, string ipaddr)
 
 void Synchronize()
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     int sockfd; 
     int nsockfd;
     char buffer[LENGTH]; 
@@ -148,6 +154,8 @@ void Synchronize()
 
 void SendSeederListofTorrent(int nsockfd, string ipaddr, string hash)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     int fr_block_sz;
     fprintf(stderr, "Sending Seeder List\n");
     string sendstr = "";
@@ -168,6 +176,8 @@ void SendSeederListofTorrent(int nsockfd, string ipaddr, string hash)
 
 void RequestHandler(int nsockfd, string ipaddr)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     char req[LENGTH];
     bzero(req, LENGTH);
     int ReqLen = read(nsockfd, req, LENGTH);
@@ -224,8 +234,11 @@ int main (int argc, char const *argv[])
     string S1 = argv[1];
     string S2 = argv[2];
     string seederList = argv[3];
-    string logfile = argv[4];
-    freopen(argv[4], "w" , stderr);
+    logfile = argv[4];
+
+   freopen(logfile.c_str(), "a+" , stderr);
+    
+    fprintf(stderr, "init tracker\n");
     myIpPort = split(S1, ':');
     otherIpPort = split(S2, ':');
     
@@ -278,7 +291,6 @@ int main (int argc, char const *argv[])
     for(auto &th : TH)
         if(th.joinable()) th.join();
 
-    fclose(stderr);
 
     return 0;
 }

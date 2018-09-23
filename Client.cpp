@@ -16,7 +16,7 @@
 #include <thread>
 
 using namespace std;
-
+string logfile;
 #define debug(x) fprintf(stderr, "Reached Checkpoint: %d \n", x);
 #define BACKLOG 100
 #define PORT 2000
@@ -71,6 +71,8 @@ std::vector<std::string> splitBig(std::string stringToBeSplitted, std::string de
 
 vector<string> GetSeederListFromTracker(string Filename)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     int sockfd; 
     int nsockfd;
     char buffer[LENGTH]; 
@@ -134,6 +136,8 @@ vector<string> GetSeederListFromTracker(string Filename)
 
 void receivePackets(vector<int > packets,string IPport, string Filename, string hash)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     int sockfd; 
     int nsockfd;
     char buffer[LENGTH+8]; 
@@ -211,6 +215,7 @@ void receivePackets(vector<int > packets,string IPport, string Filename, string 
 
 vector<int> GetPieceList(string IPport,string hash)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -282,6 +287,8 @@ vector<vector<int> > Distribute(vector<vector<int> > AllPieces, int no_of_pieces
 
 void downloadManager(string PathTorrent, string result)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     vector<string> TorrentInfo = GetSeederListFromTracker(PathTorrent);
     vector <string> SeederList;
     for(int i =6; i < TorrentInfo.size(); ++i)
@@ -349,6 +356,7 @@ void ShowDownloads()
 
 void filedownload(int portnum,int cnt)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -396,6 +404,8 @@ void filedownload(int portnum,int cnt)
 
 void ShareTorrentWithTracker(string filepath, string FileName)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     int sockfd; 
     int nsockfd;
     char buffer[LENGTH]; 
@@ -455,6 +465,7 @@ void ShareTorrentWithTracker(string filepath, string FileName)
 
 void RemoveTorrentFromTracker(string FileName)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -519,6 +530,8 @@ void RemoveTorrentFromTracker(string FileName)
 
 void makeTorrent(string path)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     string fs_name = path;
     std::ifstream in(fs_name.c_str(), std::ifstream::ate | std::ifstream::binary);
     int filesize = in.tellg(); 
@@ -571,6 +584,8 @@ void makeTorrent(string path)
 
 void error(const char *msg)
 {
+    freopen(logfile.c_str(), "a+" , stderr);
+
     perror(msg);
     exit(1);
 }
@@ -754,7 +769,8 @@ int main(int argc, char *argv[])
     SERVER = argv[1];
     TR1 = argv[2];
     TR2 = argv[3];
-    freopen(argv[4], "w" , stderr);
+    logfile = argv[4];
+    freopen(logfile.c_str(), "a" , stderr);
     
     string action,args;
     thread server(serverInit);
@@ -802,6 +818,5 @@ int main(int argc, char *argv[])
         }
 
     }
-    fclose(stderr);
     return (0);
 }
