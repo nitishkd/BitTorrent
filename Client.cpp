@@ -14,19 +14,21 @@
 #include <unistd.h>
 #include <openssl/sha.h>
 #include <thread>
+#include <mutex>
 
 using namespace std;
 string logfile;
 #define debug(x) fprintf(stderr, "Reached Checkpoint: %d \n", x);
 #define BACKLOG 100
 #define PORT 2000
-#define LENGTH 524288
+#define LENGTH 61440
 int ServerFD;
 map<string, string> HashFileMap;
 map<string, bool> Download;
 map<string, set<int> >FilePiecesAvailable;
 vector<thread> TH;
 int ThreadC;
+mutex mtx;
 
 void ShareTorrentWithTracker(string, string);
 
@@ -71,7 +73,7 @@ std::vector<std::string> splitBig(std::string stringToBeSplitted, std::string de
 
 vector<string> GetSeederListFromTracker(string Filename)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -131,95 +133,87 @@ vector<string> GetSeederListFromTracker(string Filename)
     return Torrent;
     
      
-}
-
+}            
 
 void receivePackets(vector<int > packets,string IPport, string Filename, string hash)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
-    char buffer[LENGTH+8]; 
+    char buffer[LENGTH+100]; 
     struct sockaddr_in remote_addr;
     sort(packets.begin(), packets.end());
-    if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-    {
-        fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
-        exit(1);
-    }
+    // debug(2000);
     vector<string> Vec = split(IPport, ':');
     int portnum = stoi(Vec[1]);
     string TrackerIp = Vec[0];
-    remote_addr.sin_family = AF_INET; 
-    remote_addr.sin_port = htons(portnum); 
-    //remote_addr.sin_addr.s_addr = INADDR_ANY;
-    inet_pton(AF_INET, TrackerIp.c_str(), &remote_addr.sin_addr); 
-    bzero(&(remote_addr.sin_zero), 8);
-    if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
-    {
-        fprintf(stderr, "ERROR: Failed to connect to the Server! (errno = %d)\n",errno);
-        exit(1);
-    }
-    else 
-        fprintf(stderr,"[Client] Connected to Server at port %d...ok!\n", portnum);
     
-    sockfd;
-    string sendstr = "GetPackets$";
-    sendstr += hash;
-    sendstr += "$";
+    // debug(2001);
 
-    for(int i =0; i < packets.size(); ++i)
+    for(int i=0; i < packets.size(); ++i)
     {
+        if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+        {
+            fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
+            exit(1);
+        }    
+        cout<<"Requesting for packet: "<<packets[i]<<endl;
+        remote_addr.sin_family = AF_INET; 
+        remote_addr.sin_port = htons(portnum); 
+        //remote_addr.sin_addr.s_addr = INADDR_ANY;
+        inet_pton(AF_INET, TrackerIp.c_str(), &remote_addr.sin_addr); 
+        bzero(&(remote_addr.sin_zero), 8);
+        if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
+        {
+            fprintf(stderr, "ERROR: Failed to connect to the Server! (errno = %d)\n",errno);
+            exit(1);
+        }
+        else 
+            fprintf(stderr,"[Client] Connected to Client for Download at port %d...ok!\n", portnum);    
+        
+        string sendstr = "GetPackets$";
+        sendstr += hash;
+        sendstr += "$";
         sendstr += to_string(packets[i]);
-        if(i != (packets.size()-1))
-            sendstr += " ";
+        
+        strcpy(buffer, sendstr.c_str());
+        send(sockfd, buffer, strlen(buffer), 0);
+        // debug(101);
+        string fr_name = Filename;
+            // debug(102);
+            //shutdown(nsockfd, SHUT_WR);
+            bzero(buffer, LENGTH+100); 
+            int fr_block_sz = 0;
+            string strs = "";
+            
+            while((fr_block_sz = recv(sockfd, buffer, LENGTH,0)) > 0)
+            {
+                mtx.lock();
+                FILE *fr = fopen(fr_name.c_str(), "ab+");
+                fseek(fr, packets[i]*LENGTH, SEEK_SET);
+                // printf("%s", buffer);
+                int write_sz = fwrite(buffer, 1,fr_block_sz, fr);
+                FilePiecesAvailable[hash].insert(packets[i]);
+                bzero(buffer, LENGTH+100); 
+                fclose(fr);
+                mtx.unlock();
+            }
+            
+            // debug(104);
+            fprintf(stderr,"Ok received from server!\n");
+        close(sockfd);
     }
     
-    strcpy(buffer, sendstr.c_str());
-    send(sockfd, buffer, strlen(buffer), 0);
-    debug(101);
-    string fr_name = Filename;
-    FILE *fr = fopen(fr_name.c_str(), "w");
-    if(fr == NULL)
-        fprintf(stderr,"File %s Cannot be opened.\n", fr_name);
-    else
-    {
-        debug(102);
-        //shutdown(nsockfd, SHUT_WR);
-        pthread_mutex_t MutexLock;
-        bzero(buffer, LENGTH+8); 
-        int fr_block_sz = 0;
-        string strs = "";
-        while((fr_block_sz = recv(sockfd, buffer, LENGTH,0)) > 0)
-        {
-            strs += buffer;
-            bzero(buffer, LENGTH+8); 
-        }
-        debug(103);
-        vector<string> pieces = splitBig(strs, "##########");
-        for(int i =0; i < packets.size(); ++i)
-        {
-            fseek(fr, packets[i]*LENGTH, SEEK_SET);
-            //pthread_mutex_lock(&MutexLock);
-            FilePiecesAvailable[hash].insert(packets[i]);
-            int write_sz = fwrite(pieces[i].c_str(), sizeof(char), strlen(pieces[i].c_str()), fr);
-            //pthread_mutex_unlock(&MutexLock);
-        }
-        debug(104);
-        fprintf(stderr,"Ok received from server!\n");
-        fclose(fr);
-    }
-    close(sockfd);
 }
 
 vector<int> GetPieceList(string IPport,string hash)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
-    char buffer[LENGTH+8]; 
+    char buffer[LENGTH]; 
     struct sockaddr_in remote_addr;
     if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
@@ -244,21 +238,22 @@ vector<int> GetPieceList(string IPport,string hash)
     
     string sendstr = "PacketList$";
     sendstr += hash;
-    bzero(buffer, LENGTH + 8);
+    bzero(buffer, LENGTH);
     strcpy(buffer, sendstr.c_str());
     send(sockfd, buffer, strlen(buffer), 0);
     bzero(buffer, LENGTH + 8);
     string packets = "";
     recv(sockfd, buffer, LENGTH, 0);
-    //bzero(buffer, LENGTH + 8);
+    //bzero(buffer, LENGTH);
     packets += buffer;
-
     vector<string> VT = split(packets,' ');
     vector<int> res;
     for(int i =0; i < VT.size(); ++i)
     {
-        res.push_back(stoi(VT[i]));
+        if(VT[i] != " ")
+            res.push_back(stoi(VT[i]));
     }    
+    cout<<"DONE"<<endl;
     return res;
 
 }
@@ -287,7 +282,7 @@ vector<vector<int> > Distribute(vector<vector<int> > AllPieces, int no_of_pieces
 
 void downloadManager(string PathTorrent, string result)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     vector<string> TorrentInfo = GetSeederListFromTracker(PathTorrent);
     vector <string> SeederList;
@@ -296,48 +291,38 @@ void downloadManager(string PathTorrent, string result)
     vector<thread> LocalThread;
     debug(-1);
     int fileSize = stoi(TorrentInfo[4]);
+    // std::ofstream ofs(TorrentInfo[4].c_str(), std::ios::binary | std::ios::out);
+    // ofs.seekp(fileSize-1);
+    // ofs.write("",1);
+    // ofs.close();
     int no_of_pieces = (fileSize + LENGTH - 1)/LENGTH;
     debug(0);
     string hash = TorrentInfo[5];
     string filepath;
     filepath = result;
+    debug(1);
     if(filepath.back() != '/')
         filepath += "/";
     filepath += TorrentInfo[3];
     HashFileMap[hash] = filepath;
+    debug(2);
     vector<vector<int> > AllListofPieces;
+    debug(3);
     for(int i =0; i < SeederList.size(); ++i)
         AllListofPieces.push_back(GetPieceList(SeederList[i], hash));
-    debug(1);
+    debug(3);
     vector<vector<int> > Pieces = Distribute(AllListofPieces, no_of_pieces, SeederList.size());
-    debug(2);
+    debug(4);
     thread regT(ShareTorrentWithTracker,filepath, PathTorrent);
     regT.detach();
-    // for(int i =0; i < no_of_pieces; i += 10*SeederList.size())
-    // {
-    //     LocalThread.clear();
-    //     for(int j =0; j < Pieces.size(); ++j)
-    //         Pieces[i].clear();
-
-    //     for(int j = i; j < min(i + 10*(int)SeederList.size(), no_of_pieces); ++j)
-    //         Pieces[j%Pieces.size()].push_back(j);
-
-    //     for(int j=0; j < Pieces.size(); ++j)   
-    //         LocalThread.push_back(thread(receivePackets, Pieces[j], SeederList[j], TorrentInfo[3], hash));
-        
-    //     for(auto &it : LocalThread)
-    //         if(it.joinable()) it.join();
-
-    // }
-
-    debug(4);
+    
+    debug(5000);
     Download.insert({TorrentInfo[3], true});
     for(int i=0; i < Pieces.size(); ++i)   
         LocalThread.push_back(thread(receivePackets, Pieces[i], SeederList[i], filepath, hash));
-    debug(5);
+    debug(5001);
     for(auto &it : LocalThread)
         if(it.joinable()) it.join();
-    debug(6);
     Download[TorrentInfo[3]] = false;    
     debug(7);    
 }
@@ -354,9 +339,11 @@ void ShowDownloads()
     }
 }
 
+//SERIAL DOWNLOAD
+
 void filedownload(int portnum,int cnt)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -384,7 +371,7 @@ void filedownload(int portnum,int cnt)
         fprintf(stderr,"[Client] Connected to server at port %d...ok!\n", portnum);
 
     string fr_name = "recieve" + to_string(cnt)+ ".png";
-    FILE *fr = fopen(fr_name.c_str(), "wb");
+    FILE *fr = fopen(fr_name.c_str(), "w");
     if(fr == NULL)
         fprintf(stderr,"File %s Cannot be opened.\n", fr_name);
     else
@@ -404,7 +391,7 @@ void filedownload(int portnum,int cnt)
 
 void ShareTorrentWithTracker(string filepath, string FileName)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -436,7 +423,7 @@ void ShareTorrentWithTracker(string filepath, string FileName)
     //send(sockfd, msg, strlen(msg), 0);    
 
     char sdbuf[LENGTH];
-    FILE *fs = fopen(FileName.c_str(), "rb");
+    FILE *fs = fopen(FileName.c_str(), "r");
     if(fs == NULL)
     {
         fprintf(stderr, "ERROR: File not found on Client. (errno = %d)\n", errno);
@@ -465,7 +452,7 @@ void ShareTorrentWithTracker(string filepath, string FileName)
 
 void RemoveTorrentFromTracker(string FileName)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -497,7 +484,7 @@ void RemoveTorrentFromTracker(string FileName)
     //send(sockfd, msg, strlen(msg), 0);    
 
     char sdbuf[LENGTH];
-    FILE *fs = fopen(FileName.c_str(), "rb");
+    FILE *fs = fopen(FileName.c_str(), "r");
     if(fs == NULL)
     {
         fprintf(stderr, "ERROR: File not found on Client. (errno = %d)\n", errno);
@@ -530,7 +517,7 @@ void RemoveTorrentFromTracker(string FileName)
 
 void makeTorrent(string path)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     string fs_name = path;
     std::ifstream in(fs_name.c_str(), std::ifstream::ate | std::ifstream::binary);
@@ -540,7 +527,7 @@ void makeTorrent(string path)
 
     string Fname = V.back();
     char sdbuf[LENGTH];
-    FILE *fs = fopen(fs_name.c_str(), "rb");
+    FILE *fs = fopen(fs_name.c_str(), "r");
     if(fs == NULL)
     {
         fprintf(stderr, "ERROR: File %s not found.(errno = %d)\n", Fname.c_str(), errno);
@@ -592,11 +579,11 @@ void error(const char *msg)
 
 void sendPackets(int nsockfd, string hash, string temp)
 {
-    char sdbuf[LENGTH+8];
-    bzero(sdbuf, LENGTH+8);
+    char sdbuf[LENGTH];
+    bzero(sdbuf, LENGTH);
     //read(nsockfd, sdbuf, LENGTH);
     //string temp = sdbuf;
-    //bzero(sdbuf, LENGTH+8);
+    //bzero(sdbuf, LENGTH);
     vector<string> Pack = split(temp, ' ');
     vector<int> packet;
     //string hash = Pack[0];
@@ -605,35 +592,24 @@ void sendPackets(int nsockfd, string hash, string temp)
     
     string fs_name = HashFileMap[hash];
     
-    FILE *fs = fopen(fs_name.c_str(), "r");
+    FILE *fs = fopen(fs_name.c_str(), "rb");
     if(fs == NULL)
     {
         fprintf(stderr, "[Server] : ERROR: File %s not found on server. (errno = %d)\n", fs_name.c_str(), errno);
         exit(1);
     }
-    bzero(sdbuf, LENGTH+8); 
+    bzero(sdbuf, LENGTH); 
     int fs_block_sz;
     int k;
     string sendstr = "";
     for(int i =0; i < packet.size(); ++i)
     {
-        
         fseek(fs, packet[i]*LENGTH, SEEK_SET);
         fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs);
+        cout<<"block_size: "<<fs_block_sz<<endl;    
         if(fs_block_sz > 0)
-        {
-            sendstr += sdbuf;
-            if(i != (packet.size()-1) )
-                sendstr += "##########";    
-        }
-        bzero(sdbuf, LENGTH+8);    
-    }
-    debug(100);
-    for(int i =0; i <= sendstr.length(); i += LENGTH)
-    {
-        string buff ="";
-        buff =  sendstr.substr(i, min((unsigned long)LENGTH, strlen(sendstr.c_str()) - i));
-        send(nsockfd, buff.c_str(), strlen(buff.c_str()),0);
+            send(nsockfd, sdbuf, fs_block_sz,0);
+        bzero(sdbuf, LENGTH);    
     }
     debug(101);
     fclose(fs);
@@ -649,7 +625,7 @@ void fileServe(int nsockfd)
     char sdbuf[LENGTH];
     int pid = pthread_self();
     printf("%d: [Server] Sending %s to the Client...\n", pid, fs_name);
-    FILE *fs = fopen(fs_name, "rb");
+    FILE *fs = fopen(fs_name, "r");
     if(fs == NULL)
     {
         fprintf(stderr, "ERROR: File %s not found on server. (errno = %d)\n", fs_name, errno);
@@ -674,13 +650,13 @@ void fileServe(int nsockfd)
 
 void ServerHandler(int nsockfd)
 {
-    char sdbuf[LENGTH+8];
-    bzero(sdbuf, LENGTH+8);
+    char sdbuf[LENGTH];
+    bzero(sdbuf, LENGTH);
     string action = "";
     string hash;
     recv(nsockfd, sdbuf, LENGTH,0);
     action += sdbuf;
-    bzero(sdbuf, LENGTH + 8);
+    bzero(sdbuf, LENGTH);
     
     vector<string> V = split(action, '$');
     if(V[0] == "PacketList")
@@ -770,7 +746,7 @@ int main(int argc, char *argv[])
     TR1 = argv[2];
     TR2 = argv[3];
     logfile = argv[4];
-    freopen(logfile.c_str(), "a" , stderr);
+    // freopen(logfile.c_str(), "a" , stderr);
     
     string action,args;
     thread server(serverInit);

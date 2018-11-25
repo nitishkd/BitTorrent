@@ -16,8 +16,8 @@
 using namespace std;
 #define PORT 3000
 #define BACKLOG 100
-#define LENGTH 524288
-
+#define LENGTH 61440
+#define debug(x) cout<<"Checkpoint: "<<x<<endl;
 void error(const char *msg)
 {
     perror(msg);
@@ -58,7 +58,7 @@ void ShareTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 
 void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int fr_block_sz;
     char buffer[LENGTH];
@@ -69,7 +69,7 @@ void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData)
 
 void SynchronizeTrackers(int nsockfd, string ipaddr)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     string otherTracker = otherIpPort[0] + ":" + otherIpPort[1];
     //if(otherTracker != ipaddr)
@@ -98,7 +98,7 @@ void SynchronizeTrackers(int nsockfd, string ipaddr)
 
 void Synchronize()
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int sockfd; 
     int nsockfd;
@@ -154,7 +154,7 @@ void Synchronize()
 
 void SendSeederListofTorrent(int nsockfd, string ipaddr, string hash)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     int fr_block_sz;
     fprintf(stderr, "Sending Seeder List\n");
@@ -176,7 +176,7 @@ void SendSeederListofTorrent(int nsockfd, string ipaddr, string hash)
 
 void RequestHandler(int nsockfd, string ipaddr)
 {
-    freopen(logfile.c_str(), "a+" , stderr);
+    // freopen(logfile.c_str(), "a+" , stderr);
 
     char req[LENGTH];
     bzero(req, LENGTH);
@@ -236,7 +236,7 @@ int main (int argc, char const *argv[])
     string seederList = argv[3];
     logfile = argv[4];
 
-   freopen(logfile.c_str(), "a+" , stderr);
+//    freopen(logfile.c_str(), "a+" , stderr);
     
     fprintf(stderr, "init tracker\n");
     myIpPort = split(S1, ':');
@@ -244,7 +244,6 @@ int main (int argc, char const *argv[])
     
     //SYNCHRONIZE TRACKERS
     Synchronize();
-    
     
     if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 )
     {
@@ -267,6 +266,7 @@ int main (int argc, char const *argv[])
     else 
         fprintf(stderr,"[Tracker] Binded tcp port %d in addr 127.0.0.1 sucessfully.\n",PORT);
 
+    
     if(listen(sockfd,BACKLOG) == -1)
     {
         fprintf(stderr, "ERROR: Failed to listen Port. (errno = %d)\n", errno);
