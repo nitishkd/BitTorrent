@@ -14,21 +14,21 @@
 #include <unistd.h>
 #include <openssl/sha.h>
 #include <thread>
-#include <mutex>
+#include <semaphore.h>
 
 using namespace std;
 string logfile;
 #define debug(x) fprintf(stderr, "Reached Checkpoint: %d \n", x);
 #define BACKLOG 100
 #define PORT 2000
-#define LENGTH 61440
+#define LENGTH 61440    //61440
 int ServerFD;
 map<string, string> HashFileMap;
 map<string, bool> Download;
 map<string, set<int> >FilePiecesAvailable;
 vector<thread> TH;
 int ThreadC;
-mutex mtx;
+sem_t mutexx;
 
 void ShareTorrentWithTracker(string, string);
 
@@ -189,15 +189,36 @@ void receivePackets(vector<int > packets,string IPport, string Filename, string 
             
             while((fr_block_sz = recv(sockfd, buffer, LENGTH,0)) > 0)
             {
-                mtx.lock();
-                FILE *fr = fopen(fr_name.c_str(), "ab+");
-                fseek(fr, packets[i]*LENGTH, SEEK_SET);
+                // mtx.lock();
+                // FILE *fr = fopen(fr_name.c_str(), "ab+");
+                // fseek(fr, packets[i]*LENGTH, SEEK_SET);
+                // printf("packet no: %d , starting pos: %d \n ",packets[i], packets[i]*LENGTH);
                 // printf("%s", buffer);
-                int write_sz = fwrite(buffer, 1,fr_block_sz, fr);
+                // int write_sz = fwrite(buffer, 1,fr_block_sz, fr);
+                // FilePiecesAvailable[hash].insert(packets[i]);
+                // bzero(buffer, LENGTH+100); 
+                // fclose(fr);
+                // mtx.unlock();
+                
+                sem_wait(&mutexx);
+                fstream file;
+                file.open(fr_name.c_str(),ios::out|ios::in|ios::binary);
+                if(file.fail())
+                {
+                    file.clear();
+                    file.open(fr_name.c_str(),ios::out|ios::binary);
+                    file.close();    
+                    file.open(fr_name.c_str(),ios::out|ios::in|ios::binary);
+                
+                }
+                file.seekp(packets[i]*LENGTH, ios::beg);
+                printf("packet no: %d , starting pos: %d \n ",packets[i], packets[i]*LENGTH);
+                // printf("%s", buffer);
+                file.write(buffer, fr_block_sz);
                 FilePiecesAvailable[hash].insert(packets[i]);
                 bzero(buffer, LENGTH+100); 
-                fclose(fr);
-                mtx.unlock();
+                file.close();
+                sem_post(&mutexx);
             }
             
             // debug(104);
@@ -291,10 +312,7 @@ void downloadManager(string PathTorrent, string result)
     vector<thread> LocalThread;
     debug(-1);
     int fileSize = stoi(TorrentInfo[4]);
-    // std::ofstream ofs(TorrentInfo[4].c_str(), std::ios::binary | std::ios::out);
-    // ofs.seekp(fileSize-1);
-    // ofs.write("",1);
-    // ofs.close();
+
     int no_of_pieces = (fileSize + LENGTH - 1)/LENGTH;
     debug(0);
     string hash = TorrentInfo[5];
@@ -316,7 +334,8 @@ void downloadManager(string PathTorrent, string result)
     thread regT(ShareTorrentWithTracker,filepath, PathTorrent);
     regT.detach();
     
-    debug(5000);
+    debug(5000);   
+    
     Download.insert({TorrentInfo[3], true});
     for(int i=0; i < Pieces.size(); ++i)   
         LocalThread.push_back(thread(receivePackets, Pieces[i], SeederList[i], filepath, hash));
@@ -736,6 +755,7 @@ void serverInit()
 
 int main(int argc, char *argv[])
 {
+    sem_init(&mutexx, 0, 1);
     if(argc != 5 )
     {
         cout<<"Invalid Format : <CLIENT_IP>:<UPLOAD_PORT> <TRACKER_IP_1>:<TRACKER_PORT_1> <TRACKER_IP_2>:<TRACKER_PORT_2> <log_file>"<<endl;
