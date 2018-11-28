@@ -27,6 +27,7 @@ void error(const char *msg)
 vector<string >myIpPort;
 vector<string >otherIpPort;
 string logfile;
+bool Primary;
 
 map< string,set<string> >TorrentList;
 
@@ -47,16 +48,53 @@ vector<string> split(std::string txt, char ch)
     return strs;
 }
 
-void ShareTorrentFile(int nsockfd, string ipaddr, string TorrentData)
+void ShareTorrentFile(int nsockfd, string ipaddr, string TorrentData, string msg)
 {
     int fr_block_sz;
     char buffer[LENGTH];
     vector<string> V = split(TorrentData, '\n');
     ipaddr = V[0];
     TorrentList[V[6]].insert(ipaddr);
+    
+    // SEND TO OTHER TRACKER
+    if(Primary)
+        cout<<"I am Primary"<<endl;
+    else
+        cout<<"I am not Primary"<<endl;
+    if(Primary)
+    {
+        
+        int sockfd; 
+        struct sockaddr_in remote_addr;
+
+        if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+        {
+            fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
+            exit(1);
+        }
+
+        remote_addr.sin_family = AF_INET; 
+        remote_addr.sin_port = htons(stoi(otherIpPort[1])); 
+        //remote_addr.sin_addr.s_addr = INADDR_ANY;
+        inet_pton(AF_INET, otherIpPort[0].c_str(), &remote_addr.sin_addr); 
+        bzero(&(remote_addr.sin_zero), 8);
+
+        if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
+        {
+            fprintf(stderr, "ERROR: Failed to connect to the Other Tracker (errno = %d)\n",errno);
+            return;
+        }
+        else 
+            fprintf(stderr,"[Client] Connected to Other Tracker...ok!\n");
+
+        
+        send(sockfd, msg.c_str(), strlen(msg.c_str()), 0); 
+        close (sockfd);
+    }
+    
 }
 
-void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData)
+void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData, string msg)
 {
     // freopen(logfile.c_str(), "a+" , stderr);
 
@@ -65,6 +103,36 @@ void RemoveTorrentFile(int nsockfd, string ipaddr, string TorrentData)
     vector<string> V = split(TorrentData, '\n');
     ipaddr = V[0];
     TorrentList[V[6]].erase(ipaddr);
+    // SEND TO OTHER TRACKER
+    if(Primary)
+    {
+        int sockfd;
+        struct sockaddr_in remote_addr;
+
+        if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+        {
+            fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
+            exit(1);
+        }
+        remote_addr.sin_family = AF_INET; 
+        remote_addr.sin_port = htons(stoi(otherIpPort[1])); 
+        //remote_addr.sin_addr.s_addr = INADDR_ANY;
+        inet_pton(AF_INET, otherIpPort[0].c_str(), &remote_addr.sin_addr); 
+        bzero(&(remote_addr.sin_zero), 8);
+
+        if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
+        {
+            fprintf(stderr, "ERROR: Failed to connect to the Other Tracker (errno = %d)\n",errno);
+            return;
+        }
+        else 
+            fprintf(stderr,"[Client] Connected to Other Tracker...ok!\n");
+
+        
+        send(sockfd, msg.c_str(), strlen(msg.c_str()), 0); 
+
+        close (sockfd);
+    }
 }
 
 void SynchronizeTrackers(int nsockfd, string ipaddr)
@@ -184,20 +252,16 @@ void RequestHandler(int nsockfd, string ipaddr)
     string msg = req;
     vector<string> message = split(msg,'$');
     string request = message[0];
-
+    cout<<msg<<endl;
     if(request == "share")
     {
         string hash = message[1];
-        ShareTorrentFile(nsockfd, ipaddr, hash);
+        ShareTorrentFile(nsockfd, ipaddr, hash, msg);
     }
     if(request == "seederlist")
     {
         string hash = message[1];
         SendSeederListofTorrent(nsockfd, ipaddr, hash);
-    }
-    if(request == "remove")
-    {
-        //TODO
     }
     if(request == "synchronize")
     {
@@ -206,7 +270,7 @@ void RequestHandler(int nsockfd, string ipaddr)
     if(request == "remove")
     {
         string hash = message[1];
-        RemoveTorrentFile(nsockfd, ipaddr, hash);
+        RemoveTorrentFile(nsockfd, ipaddr, hash, msg);
     }
 
 }
@@ -225,9 +289,9 @@ int main (int argc, char const *argv[])
     struct sockaddr_in addr_remote; 
     char buffer[LENGTH], request[LENGTH];
 
-    if(argc != 5)
+    if(argc != 6)
     {
-        cout<<"Command line arguments : <my_tracker_ip>:<my_tracker_port> <other_tracker_ip>:<other_tracker_port> <seederlist_file> <log_file>"<<endl;
+        cout<<"Command line arguments : <my_tracker_ip>:<my_tracker_port> <other_tracker_ip>:<other_tracker_port> <seederlist_file> <log_file> <true/false for master/slave>"<<endl;
         return 0;
     }
 
@@ -235,7 +299,13 @@ int main (int argc, char const *argv[])
     string S2 = argv[2];
     string seederList = argv[3];
     logfile = argv[4];
-
+    string t = argv[5];
+    cout<<t<<endl;
+    if(t == "true")
+        Primary = true;
+    else
+        Primary = false;
+    
 //    freopen(logfile.c_str(), "a+" , stderr);
     
     fprintf(stderr, "init tracker\n");
@@ -264,7 +334,7 @@ int main (int argc, char const *argv[])
         exit(1);
     }
     else 
-        fprintf(stderr,"[Tracker] Binded tcp port %d in addr 127.0.0.1 sucessfully.\n",PORT);
+        fprintf(stderr,"[Tracker] Binded tcp port %d in addr 127.0.0.1 sucessfully.\n",stoi(myIpPort[1]));
 
     
     if(listen(sockfd,BACKLOG) == -1)
@@ -273,7 +343,7 @@ int main (int argc, char const *argv[])
         exit(1);
     }
     else
-        fprintf (stderr,"[Tracker] Listening the port %d successfully.\n", PORT);
+        fprintf (stderr,"[Tracker] Listening the port %d successfully.\n", stoi(myIpPort[1]));
 
     int success = 0;
     sin_size = sizeof(struct sockaddr_in);

@@ -466,6 +466,7 @@ void ShareTorrentWithTracker(string filepath, string FileName)
     fprintf(stderr,"Ok sent to Tracker!\n");
     close(sockfd);
     fprintf(stderr,"[Client] Connection with Tracker closed.\n");
+    fprintf(stderr,"%s", msg.c_str());
  
 }
 
