@@ -16,7 +16,7 @@
 using namespace std;
 #define PORT 3000
 #define BACKLOG 100
-#define LENGTH 61440
+#define LENGTH 20480
 #define debug(x) cout<<"Checkpoint: "<<x<<endl;
 void error(const char *msg)
 {

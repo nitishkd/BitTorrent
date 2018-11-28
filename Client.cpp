@@ -21,7 +21,7 @@ string logfile;
 #define debug(x) fprintf(stderr, "Reached Checkpoint: %d \n", x);
 #define BACKLOG 100
 #define PORT 2000
-#define LENGTH 61440    //61440
+#define LENGTH 20480    //61440
 int ServerFD;
 map<string, string> HashFileMap;
 map<string, bool> Download;
@@ -576,13 +576,32 @@ void makeTorrent(string path)
             str.append(newstr);
         }
         hashnew += str;
+        // fprintf(output,"%s",str.c_str());
+        bzero(hash, SHA_DIGEST_LENGTH);
+        bzero(sdbuf, LENGTH);
+    }
+    int idx = 0;
+    string hashnewout = "";
+    while(idx < hashnew.length())
+    {
+        string buff = hashnew.substr(idx, min(LENGTH, (int)hashnew.length()-idx));
+        idx += LENGTH;
+        string str = "";
+        char newstr[20];
+        SHA1((unsigned char *)(buff.c_str()), strlen(buff.c_str()),hash);
+        for(int i =0; i < 20; ++i){
+            sprintf(newstr,"%02x", hash[i]);
+            str.append(newstr);
+        }
+        hashnewout += str;
         fprintf(output,"%s",str.c_str());
         bzero(hash, SHA_DIGEST_LENGTH);
         bzero(sdbuf, LENGTH);
     }
+    
     int no_of_pieces = (filesize + LENGTH - 1)/LENGTH;
     for(int i = 0; i < no_of_pieces; ++i)
-        FilePiecesAvailable[hashnew].insert(i);
+        FilePiecesAvailable[hashnewout].insert(i);
     fprintf(stderr, "Torrent File Generated \n");
     fclose(output);
     fclose(fs);
