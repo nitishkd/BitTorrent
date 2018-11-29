@@ -32,6 +32,12 @@ sem_t mutexx;
 
 void ShareTorrentWithTracker(string, string);
 
+bool is_number(const std::string& s)
+{
+    return !s.empty() && std::find_if(s.begin(), 
+        s.end(), [](char c) { return !std::isdigit(c); }) == s.end();
+}
+
 string TR1, TR2,SERVER;
 
 vector<string> split(std::string txt, char ch)
@@ -271,7 +277,8 @@ vector<int> GetPieceList(string IPport,string hash)
     vector<int> res;
     for(int i =0; i < VT.size(); ++i)
     {
-        if(VT[i] != " ")
+        cout<<i<<" : "<<VT[i]<<endl;
+        if(is_number(VT[i]))
             res.push_back(stoi(VT[i]));
     }    
     cout<<"DONE"<<endl;
@@ -329,6 +336,7 @@ void downloadManager(string PathTorrent, string result)
     for(int i =0; i < SeederList.size(); ++i)
         AllListofPieces.push_back(GetPieceList(SeederList[i], hash));
     debug(3);
+    cout<<"NUMBER OF PIECES: "<<no_of_pieces<<endl;
     vector<vector<int> > Pieces = Distribute(AllListofPieces, no_of_pieces, SeederList.size());
     debug(4);
     thread regT(ShareTorrentWithTracker,filepath, PathTorrent);

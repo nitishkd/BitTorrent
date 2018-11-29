@@ -23,9 +23,15 @@ Bit Torrent File Sharing P2P System
 
 `make C`
 
-### Command to Run Tracker:
+### Command to Run Master Tracker:
 
-`./Tracker 127.0.0.1:3500 127.0.0.1:3000 seeder.txt log2.txt`
+`./Tracker 127.0.0.1:3500 127.0.0.1:3000 seeder.txt log2.txt true`
+
+
+### Command to Run Slave Tracker:
+
+`./Tracker 127.0.0.1:3500 127.0.0.1:3000 seeder.txt log2.txt false`
+
 
 ### Command to Run Client: 
 
@@ -53,4 +59,4 @@ Bit Torrent File Sharing P2P System
 
 `remove input.mtorrent`
 
-NOTE: If file is a text file, then multi-threaded download from different clients works perfectly, but some bytes gets missing in case of other files. For that, there is also functionality to download it sequently from any one single client like regular download.
+NOTE: It works only for files sizes less than 80 MB. Will fix this in future release. 
